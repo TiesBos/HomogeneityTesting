@@ -1,0 +1,11 @@
+export(generate_data)
+export(probit_glm)
+export(hetero_probit)
+export(quantile_function)
+
+useDynLib(HomogeneityTest, .registration=TRUE)
+importFrom(Rcpp, evalCpp)
+import(RcppParallel)
+exportPattern("^[[:alpha:]]+")
+
+

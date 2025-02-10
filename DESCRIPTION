@@ -1,0 +1,14 @@
+Package: HomogeneityTest
+Type: Package
+Title: What the package does (short line)
+Version: 1.0
+Date: 2025-02-10
+Author: Who wrote it
+Maintainer: Who to complain to <yourfault@somewhere.net>
+Description: More about what it does (maybe more than one
+      line)
+Encoding: UTF-8
+License: What license is it under?
+Imports: Rcpp (>= 1.0.14), RcppParallel
+LinkingTo: Rcpp, RcppArmadillo, RcppParallel
+RoxygenNote: 7.3.2

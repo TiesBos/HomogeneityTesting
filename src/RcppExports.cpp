@@ -116,6 +116,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// simulation_procedure
+List simulation_procedure(int N, int tt, int no_sim, int B, int max_iter, double tol);
+RcppExport SEXP _HomogeneityTest_simulation_procedure(SEXP NSEXP, SEXP ttSEXP, SEXP no_simSEXP, SEXP BSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type N(NSEXP);
+    Rcpp::traits::input_parameter< int >::type tt(ttSEXP);
+    Rcpp::traits::input_parameter< int >::type no_sim(no_simSEXP);
+    Rcpp::traits::input_parameter< int >::type B(BSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(simulation_procedure(N, tt, no_sim, B, max_iter, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_HomogeneityTest_generate_panel_data", (DL_FUNC) &_HomogeneityTest_generate_panel_data, 4},
@@ -126,6 +142,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_HomogeneityTest_boot_function", (DL_FUNC) &_HomogeneityTest_boot_function, 3},
     {"_HomogeneityTest_quantile_func", (DL_FUNC) &_HomogeneityTest_quantile_func, 2},
     {"_HomogeneityTest_bootstrap_procedure", (DL_FUNC) &_HomogeneityTest_bootstrap_procedure, 4},
+    {"_HomogeneityTest_simulation_procedure", (DL_FUNC) &_HomogeneityTest_simulation_procedure, 6},
     {NULL, NULL, 0}
 };
 

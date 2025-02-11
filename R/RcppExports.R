@@ -33,3 +33,7 @@ bootstrap_procedure <- function(df, B, max_iter = 1000L, tol = 1e-6) {
     .Call(`_HomogeneityTest_bootstrap_procedure`, df, B, max_iter, tol)
 }
 
+simulation_procedure <- function(N, tt, no_sim, B, max_iter = 1000L, tol = 1e-6) {
+    .Call(`_HomogeneityTest_simulation_procedure`, N, tt, no_sim, B, max_iter, tol)
+}
+

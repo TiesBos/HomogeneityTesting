@@ -5,7 +5,7 @@
 #include <random>
 
 // [[Rcpp::depends(RcppArmadillo, RcppParallel)]]
-// [[Rcpp::plugins(cpp11)]]
+
 
 using namespace Rcpp;
 using namespace arma;
@@ -195,46 +195,76 @@ DataFrame param_bootstrap_data(DataFrame df, arma::vec beta) {
   return df;
 }
 
-struct BootFunctionWorker : public Worker {
-  // Inputs
+// struct BootWorker : public Worker {
+//   const DataFrame df;
+//   const arma::vec beta_star_vec;
+//   RVector<double> boot_stats;
+// 
+//   BootWorker(const DataFrame df, const arma::vec& beta_star_vec, NumericVector boot_stats)
+//     : df(df), beta_star_vec(beta_star_vec), boot_stats(boot_stats) {}
+// 
+//   void operator()(std::size_t begin, std::size_t end) {
+//     for (std::size_t i = begin; i < end; i++) {
+//       try {
+//         DataFrame boot_sample = param_bootstrap_data(df, beta_star_vec);
+//         List fe_model = binary_individual_slopes(boot_sample);
+// 
+//         NumericVector X_temp = boot_sample["X"];
+//         arma::mat X(X_temp.begin(), X_temp.size(), 1, false);
+//         NumericVector Y_temp = boot_sample["Y"];
+//         arma::vec Y(Y_temp.begin(), Y_temp.size(), false);
+//         List fe_model_null = probit_mle(X, Y);
+// 
+//         double LR_stat = 2 * (as<double>(fe_model["log_likelihood"]) - as<double>(fe_model_null["log_likelihood"]));
+//         boot_stats[i] = LR_stat;
+//       } catch (const std::exception& e) {
+//         boot_stats[i] = NA_REAL;
+//       }
+//     }
+//   }
+// };
+// 
+// // [[Rcpp::export]]
+// NumericVector boot_function(DataFrame df, int B, List null_model) {
+//   NumericVector boot_stats(B);
+//   arma::vec beta_star_vec = as<arma::vec>(null_model["estimate"]);
+// 
+//   BootWorker worker(df, beta_star_vec, boot_stats);
+//   parallelFor(0, B, worker);
+// 
+//   return boot_stats;
+// }
+
+struct BootWorker : public Worker {
   const DataFrame df;
-  const int B;
-  const List null_model;
+  const arma::vec beta_star_vec;
+  RVector<double> boot_stats;
   
-  // Output
-  NumericVector boot_stats;
+  BootWorker(const DataFrame df, const arma::vec& beta_star_vec, NumericVector boot_stats)
+    : df(df), beta_star_vec(beta_star_vec), boot_stats(boot_stats) {}
   
-  // Constructor
-  BootFunctionWorker(const DataFrame df, const int B, const List null_model, NumericVector boot_stats)
-    : df(df), B(B), null_model(null_model), boot_stats(boot_stats) {}
-  
-  // Parallelized operator
   void operator()(std::size_t begin, std::size_t end) {
-    // Extract coefficients from the full model (beta_star)
-    std::vector<double> beta_star = as<std::vector<double>>(null_model["estimate"]);
-    
-    // Loop for the bootstrap iterations in parallel
     for (std::size_t i = begin; i < end; i++) {
       try {
         // Generate bootstrap sample
-        arma::vec beta_star = as<arma::vec>(null_model["estimate"]);
-        DataFrame boot_sample = param_bootstrap_data(df, beta_star);
+        DataFrame boot_sample = param_bootstrap_data(df, beta_star_vec);
         
-        // Fit fixed effect models
+        // Run full and null model within each thread (ensuring thread safety)
         List fe_model = binary_individual_slopes(boot_sample);
+        
         NumericVector X_temp = boot_sample["X"];
-        arma::mat X(X_temp.begin(), X_temp.size(),1, false);
+        arma::mat X(X_temp.begin(), X_temp.size(), 1, false);
         NumericVector Y_temp = boot_sample["Y"];
         arma::vec Y(Y_temp.begin(), Y_temp.size(), false);
         List fe_model_null = probit_mle(X, Y);
         
-        // The likelihood ratio statistic:
+        // Compute test statistic
         double LR_stat = 2 * (as<double>(fe_model["log_likelihood"]) - as<double>(fe_model_null["log_likelihood"]));
-        boot_stats[i] = LR_stat; // Store the result in the corresponding position
+        
+        // Store result safely
+        boot_stats[i] = LR_stat;
       } catch (const std::exception& e) {
-        // In case of failure, skip the current iteration
-        Rcpp::Rcerr << "Error in bootstrap iteration " << i << ": " << e.what() << std::endl;
-        continue; // Skip to the next iteration if an error occurs
+        boot_stats[i] = NA_REAL;  // Assign NA if an error occurs
       }
     }
   }
@@ -242,17 +272,16 @@ struct BootFunctionWorker : public Worker {
 
 // [[Rcpp::export]]
 NumericVector boot_function(DataFrame df, int B, List null_model) {
-  // Initialize the result vector to store bootstrap statistics
-  NumericVector boot_stats(B);
+  NumericVector boot_stats(B);  // Output vector
+  arma::vec beta_star_vec = as<arma::vec>(null_model["estimate"]);  // Extract beta estimates
   
-  // Create the worker for parallel execution
-  BootFunctionWorker worker(df, B, null_model, boot_stats);
-  
-  // Run the worker in parallel (using the default number of threads)
-  parallelFor(0, B, worker);
+  // Use parallel processing
+  BootWorker worker(df, beta_star_vec, boot_stats);
+  parallelFor(0, B, worker, 1);  // Set grainsize to 1 for better load balancing
   
   return boot_stats;
 }
+
 
 // Calculate the quantile of the bootstrap statistics
 //[[Rcpp::export]]
@@ -283,6 +312,11 @@ double quantile_func(arma::vec vec, double prob){
 
 // [[Rcpp::export]]
 List bootstrap_procedure(DataFrame df, int B, int max_iter = 1000, double tol = 1e-6) {
+  // Calculate N:
+  NumericVector ID_temp = df["ID"];
+  int N = unique(ID_temp).size();
+  
+  
   // Fit the null model
   Rcpp::Rcout << "test " << std::endl;
   NumericVector X_temp = df["X"];
@@ -301,11 +335,70 @@ List bootstrap_procedure(DataFrame df, int B, int max_iter = 1000, double tol = 
   double sd_boot_stats = sd(boot_stats);
   double normalized_boot_stats = (LLR_stat - mean_boot_stats) / sd_boot_stats;
   
+  // Standard Normal quantile:
+  double quantile_005 = R::qnorm(0.05, 0.0, 1.0, 1, 0);
+  double quantile_095 = R::qnorm(0.95, 0.0, 1.0, 1, 0);
+  double quantile_025 = R::qnorm(0.025, 0.0, 1.0, 1, 0);
+  double quantile_975 = R::qnorm(0.975, 0.0, 1.0, 1, 0);
   
+  // chi-squared quantile
+  double chi_squared_005 = R::qchisq(0.95,N-1, true, false);
   
   // Return the results
   return List::create(
     Named("LLR_stat") = LLR_stat,
-    Named("normalized_LLR_stat") = normalized_boot_stats
+    Named("normalized_LLR_stat") = normalized_boot_stats,
+    Named("chi_squared_reject") = LLR_stat > chi_squared_005,
+    Named("q_5_reject") = normalized_boot_stats < quantile_005,
+    Named("q_95_reject") = normalized_boot_stats > quantile_095,
+    Named("q_025_975_reject") = normalized_boot_stats < quantile_025 || normalized_boot_stats > quantile_975
   );
 }
+
+// [[Rcpp::export]]
+List simulation_procedure(int N, int tt, int no_sim, int B, int max_iter = 1000, double tol = 1e-6) {
+  // Initialize the results
+  arma::vec LLR_stats(no_sim);
+  arma::vec normalized_LL_stats(no_sim);
+  arma::vec chi_squared_reject(no_sim);
+  arma::vec q_5_reject(no_sim);
+  arma::vec q_95_reject(no_sim);
+  arma::vec q_025_975_reject(no_sim);
+  
+  // Run the simulation procedure
+  for (int i = 0; i < no_sim; i++) {
+    // Generate panel data
+    DataFrame df = generate_panel_data(N, tt, 1.0, 1.0);
+    
+    // Run the bootstrap procedure
+    List results = bootstrap_procedure(df, B, max_iter, tol);
+    
+    // Store the results
+    LLR_stats(i) = as<double>(results["LLR_stat"]);
+    normalized_LL_stats(i) = as<double>(results["normalized_LLR_stat"]);
+    chi_squared_reject(i) = as<bool>(results["chi_squared_reject"]);
+    q_5_reject(i) = as<bool>(results["q_5_reject"]);
+    q_95_reject(i) = as<bool>(results["q_95_reject"]);
+    q_025_975_reject(i) = as<bool>(results["q_025_975_reject"]);
+  }
+  
+  // Calculate the quantiles
+  double quantile_025 = quantile_func(normalized_LL_stats, 0.025);
+  double quantile_975 = quantile_func(normalized_LL_stats, 0.975);
+  
+  // Return the results
+  return List::create(
+    Named("LLR_stats") = LLR_stats,
+    Named("normalized_LL_stats") = normalized_LL_stats,
+    Named("quantile_025") = quantile_025,
+    Named("quantile_975") = quantile_975
+  );
+}
+
+
+
+
+
+
+
+

@@ -25,19 +25,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// probit_log_likelihood
-double probit_log_likelihood(const std::vector<double>& beta, std::vector<double>& grad, void* params);
-RcppExport SEXP _HomogeneityTest_probit_log_likelihood(SEXP betaSEXP, SEXP gradSEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type beta(betaSEXP);
-    Rcpp::traits::input_parameter< std::vector<double>& >::type grad(gradSEXP);
-    Rcpp::traits::input_parameter< void* >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(probit_log_likelihood(beta, grad, params));
-    return rcpp_result_gen;
-END_RCPP
-}
 // probit_mle
 Rcpp::List probit_mle(const arma::mat& X, const arma::vec& Y, int max_iter, double tol);
 RcppExport SEXP _HomogeneityTest_probit_mle(SEXP XSEXP, SEXP YSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
@@ -135,7 +122,6 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_HomogeneityTest_generate_panel_data", (DL_FUNC) &_HomogeneityTest_generate_panel_data, 4},
-    {"_HomogeneityTest_probit_log_likelihood", (DL_FUNC) &_HomogeneityTest_probit_log_likelihood, 3},
     {"_HomogeneityTest_probit_mle", (DL_FUNC) &_HomogeneityTest_probit_mle, 4},
     {"_HomogeneityTest_binary_individual_slopes", (DL_FUNC) &_HomogeneityTest_binary_individual_slopes, 3},
     {"_HomogeneityTest_param_bootstrap_data", (DL_FUNC) &_HomogeneityTest_param_bootstrap_data, 2},

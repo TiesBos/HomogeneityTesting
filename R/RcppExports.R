@@ -5,11 +5,7 @@ generate_panel_data <- function(N, tt, beta, sigma) {
     .Call(`_HomogeneityTest_generate_panel_data`, N, tt, beta, sigma)
 }
 
-probit_log_likelihood <- function(beta, grad, params) {
-    .Call(`_HomogeneityTest_probit_log_likelihood`, beta, grad, params)
-}
-
-probit_mle <- function(X, Y, max_iter = 10000L, tol = 1e-6) {
+probit_mle <- function(X, Y, max_iter = 100000L, tol = 1e-6) {
     .Call(`_HomogeneityTest_probit_mle`, X, Y, max_iter, tol)
 }
 

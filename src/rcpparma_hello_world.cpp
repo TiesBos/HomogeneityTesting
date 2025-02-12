@@ -407,6 +407,7 @@ List bootstrap_procedure(DataFrame df, int B, int max_iter = 1000, double tol = 
   }
   // Run the bootstrap procedure
   NumericVector boot_stats = boot_function(df, B, null_model);
+  boot_stats = boot_stats[!is_na(boot_stats)];
   double mean_boot_stats = mean(boot_stats);
   double sd_boot_stats = sd(boot_stats);
   double normalized_boot_stats = (LLR_stat - mean_boot_stats) / sd_boot_stats;

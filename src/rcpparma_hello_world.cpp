@@ -332,9 +332,29 @@ NumericVector boot_function(DataFrame df, int B, List null_model) {
   NumericVector boot_stats(B);  // Output vector
   arma::vec beta_star_vec = as<arma::vec>(null_model["estimate"]);  // Extract beta estimates
   
-  // Use parallel processing
-  BootWorker worker(df, beta_star_vec, boot_stats);
-  parallelFor(0, B, worker, 1);  // Set grainsize to 1 for better load balancing
+  for(int i = 0; i < B; i++) {
+    // Generate bootstrap sample
+    DataFrame boot_sample = param_bootstrap_data(df, beta_star_vec);
+    
+    // Run full and null model
+    List fe_model = binary_individual_slopes(boot_sample);
+    
+    NumericVector X_temp = boot_sample["X"];
+    arma::mat X(X_temp.begin(), X_temp.size(), 1, false);
+    NumericVector Y_temp = boot_sample["Y"];
+    arma::vec Y(Y_temp.begin(), Y_temp.size(), false);
+    List fe_model_null = probit_mle(X, Y);
+    
+    // Compute test statistic
+    double LR_stat = 2 * (as<double>(fe_model["log_likelihood"]) - as<double>(fe_model_null["log_likelihood"]));
+    
+    if(LR_stat < 0){
+      LR_stat = NA_REAL;
+    }
+    
+    // Store result
+    boot_stats[i] = LR_stat;
+  }
   
   return boot_stats;
 }
@@ -375,17 +395,16 @@ List bootstrap_procedure(DataFrame df, int B, int max_iter = 1000, double tol = 
   
   
   // Fit the null model
-  Rcpp::Rcout << "test " << std::endl;
   NumericVector X_temp = df["X"];
   arma::mat X(X_temp.begin(), X_temp.size(),1, false);
   NumericVector Y_temp = df["Y"];
   arma::vec Y(Y_temp.begin(), Y_temp.size(), false);
   List null_model = probit_mle(X, Y, max_iter, tol);
-  Rcpp::Rcout << "test " << std::endl;
   List full_model = binary_individual_slopes(df, max_iter, tol);
-  Rcpp::Rcout << "test " << std::endl;
   double LLR_stat = 2 * (as<double>(full_model["log_likelihood"]) - as<double>(null_model["log_likelihood"]));
-  
+  if(LLR_stat<0){
+    LLR_stat = NA_REAL;
+  }
   // Run the bootstrap procedure
   NumericVector boot_stats = boot_function(df, B, null_model);
   double mean_boot_stats = mean(boot_stats);
@@ -404,6 +423,7 @@ List bootstrap_procedure(DataFrame df, int B, int max_iter = 1000, double tol = 
   // Return the results
   return List::create(
     Named("LLR_stat") = LLR_stat,
+    Named("boot_stats") = boot_stats,
     Named("normalized_LLR_stat") = normalized_boot_stats,
     Named("chi_squared_reject") = LLR_stat > chi_squared_005,
     Named("q_5_reject") = normalized_boot_stats < quantile_005,

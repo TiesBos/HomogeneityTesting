@@ -421,10 +421,14 @@ List bootstrap_procedure(DataFrame df, int B, int max_iter = 1000, double tol = 
   // chi-squared quantile
   double chi_squared_005 = R::qchisq(0.95,N-1, true, false);
   
+  // bootstrap quantile:
+  double boot_quantile = quantile_func(boot_stats, 0.95);
+  
   // Return the results
   return List::create(
     Named("LLR_stat") = LLR_stat,
     Named("boot_stats") = boot_stats,
+    Named("boot_reject") = LLR_stat > boot_quantile,
     Named("normalized_LLR_stat") = normalized_boot_stats,
     Named("chi_squared_reject") = LLR_stat > chi_squared_005,
     Named("q_5_reject") = normalized_boot_stats < quantile_005,

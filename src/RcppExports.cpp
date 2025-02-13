@@ -12,7 +12,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // generate_panel_data
-Rcpp::DataFrame generate_panel_data(int N, int tt, double beta, double sigma);
+arma::mat generate_panel_data(int N, int tt, double beta, double sigma);
 RcppExport SEXP _HomogeneityTest_generate_panel_data(SEXP NSEXP, SEXP ttSEXP, SEXP betaSEXP, SEXP sigmaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -26,7 +26,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // probit_mle
-Rcpp::List probit_mle(const arma::mat& X, const arma::vec& Y, int max_iter, double tol);
+arma::vec probit_mle(const arma::mat& X, const arma::vec& Y, int max_iter, double tol);
 RcppExport SEXP _HomogeneityTest_probit_mle(SEXP XSEXP, SEXP YSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -40,40 +40,27 @@ BEGIN_RCPP
 END_RCPP
 }
 // binary_individual_slopes
-List binary_individual_slopes(const DataFrame& df, int max_iter, double tol);
-RcppExport SEXP _HomogeneityTest_binary_individual_slopes(SEXP dfSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
+arma::vec binary_individual_slopes(const arma::mat& data, int max_iter, double tol);
+RcppExport SEXP _HomogeneityTest_binary_individual_slopes(SEXP dataSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const DataFrame& >::type df(dfSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type data(dataSEXP);
     Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(binary_individual_slopes(df, max_iter, tol));
+    rcpp_result_gen = Rcpp::wrap(binary_individual_slopes(data, max_iter, tol));
     return rcpp_result_gen;
 END_RCPP
 }
 // param_bootstrap_data
-DataFrame param_bootstrap_data(DataFrame df, arma::vec beta);
-RcppExport SEXP _HomogeneityTest_param_bootstrap_data(SEXP dfSEXP, SEXP betaSEXP) {
+arma::mat param_bootstrap_data(const arma::mat& data, const arma::vec& beta);
+RcppExport SEXP _HomogeneityTest_param_bootstrap_data(SEXP dataSEXP, SEXP betaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type df(dfSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type beta(betaSEXP);
-    rcpp_result_gen = Rcpp::wrap(param_bootstrap_data(df, beta));
-    return rcpp_result_gen;
-END_RCPP
-}
-// boot_function
-NumericVector boot_function(DataFrame df, int B, List null_model);
-RcppExport SEXP _HomogeneityTest_boot_function(SEXP dfSEXP, SEXP BSEXP, SEXP null_modelSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type df(dfSEXP);
-    Rcpp::traits::input_parameter< int >::type B(BSEXP);
-    Rcpp::traits::input_parameter< List >::type null_model(null_modelSEXP);
-    rcpp_result_gen = Rcpp::wrap(boot_function(df, B, null_model));
+    Rcpp::traits::input_parameter< const arma::mat& >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type beta(betaSEXP);
+    rcpp_result_gen = Rcpp::wrap(param_bootstrap_data(data, beta));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -89,22 +76,35 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// bootstrap_procedure
-List bootstrap_procedure(DataFrame df, int B, int max_iter, double tol);
-RcppExport SEXP _HomogeneityTest_bootstrap_procedure(SEXP dfSEXP, SEXP BSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
+// boot_function
+arma::vec boot_function(const arma::mat& data, int B, const arma::vec& null_model);
+RcppExport SEXP _HomogeneityTest_boot_function(SEXP dataSEXP, SEXP BSEXP, SEXP null_modelSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type df(dfSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< int >::type B(BSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type null_model(null_modelSEXP);
+    rcpp_result_gen = Rcpp::wrap(boot_function(data, B, null_model));
+    return rcpp_result_gen;
+END_RCPP
+}
+// bootstrap_procedure
+Rcpp::List bootstrap_procedure(const arma::mat& data, int B, int max_iter, double tol);
+RcppExport SEXP _HomogeneityTest_bootstrap_procedure(SEXP dataSEXP, SEXP BSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type data(dataSEXP);
     Rcpp::traits::input_parameter< int >::type B(BSEXP);
     Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(bootstrap_procedure(df, B, max_iter, tol));
+    rcpp_result_gen = Rcpp::wrap(bootstrap_procedure(data, B, max_iter, tol));
     return rcpp_result_gen;
 END_RCPP
 }
 // simulation_procedure
-List simulation_procedure(int N, int tt, int no_sim, int B, int max_iter, double tol);
+Rcpp::List simulation_procedure(int N, int tt, int no_sim, int B, int max_iter, double tol);
 RcppExport SEXP _HomogeneityTest_simulation_procedure(SEXP NSEXP, SEXP ttSEXP, SEXP no_simSEXP, SEXP BSEXP, SEXP max_iterSEXP, SEXP tolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -125,8 +125,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_HomogeneityTest_probit_mle", (DL_FUNC) &_HomogeneityTest_probit_mle, 4},
     {"_HomogeneityTest_binary_individual_slopes", (DL_FUNC) &_HomogeneityTest_binary_individual_slopes, 3},
     {"_HomogeneityTest_param_bootstrap_data", (DL_FUNC) &_HomogeneityTest_param_bootstrap_data, 2},
-    {"_HomogeneityTest_boot_function", (DL_FUNC) &_HomogeneityTest_boot_function, 3},
     {"_HomogeneityTest_quantile_func", (DL_FUNC) &_HomogeneityTest_quantile_func, 2},
+    {"_HomogeneityTest_boot_function", (DL_FUNC) &_HomogeneityTest_boot_function, 3},
     {"_HomogeneityTest_bootstrap_procedure", (DL_FUNC) &_HomogeneityTest_bootstrap_procedure, 4},
     {"_HomogeneityTest_simulation_procedure", (DL_FUNC) &_HomogeneityTest_simulation_procedure, 6},
     {NULL, NULL, 0}

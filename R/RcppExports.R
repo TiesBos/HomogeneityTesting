@@ -5,28 +5,28 @@ generate_panel_data <- function(N, tt, beta, sigma) {
     .Call(`_HomogeneityTest_generate_panel_data`, N, tt, beta, sigma)
 }
 
-probit_mle <- function(X, Y, max_iter = 100000L, tol = 1e-6) {
+probit_mle <- function(X, Y, max_iter = 10000L, tol = 1e-6) {
     .Call(`_HomogeneityTest_probit_mle`, X, Y, max_iter, tol)
 }
 
-binary_individual_slopes <- function(df, max_iter = 1000L, tol = 1e-6) {
-    .Call(`_HomogeneityTest_binary_individual_slopes`, df, max_iter, tol)
+binary_individual_slopes <- function(data, max_iter = 1000L, tol = 1e-6) {
+    .Call(`_HomogeneityTest_binary_individual_slopes`, data, max_iter, tol)
 }
 
-param_bootstrap_data <- function(df, beta) {
-    .Call(`_HomogeneityTest_param_bootstrap_data`, df, beta)
-}
-
-boot_function <- function(df, B, null_model) {
-    .Call(`_HomogeneityTest_boot_function`, df, B, null_model)
+param_bootstrap_data <- function(data, beta) {
+    .Call(`_HomogeneityTest_param_bootstrap_data`, data, beta)
 }
 
 quantile_func <- function(vec, prob) {
     .Call(`_HomogeneityTest_quantile_func`, vec, prob)
 }
 
-bootstrap_procedure <- function(df, B, max_iter = 1000L, tol = 1e-6) {
-    .Call(`_HomogeneityTest_bootstrap_procedure`, df, B, max_iter, tol)
+boot_function <- function(data, B, null_model) {
+    .Call(`_HomogeneityTest_boot_function`, data, B, null_model)
+}
+
+bootstrap_procedure <- function(data, B, max_iter = 1000L, tol = 1e-6) {
+    .Call(`_HomogeneityTest_bootstrap_procedure`, data, B, max_iter, tol)
 }
 
 simulation_procedure <- function(N, tt, no_sim, B, max_iter = 1000L, tol = 1e-6) {

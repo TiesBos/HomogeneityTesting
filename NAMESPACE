@@ -2,6 +2,7 @@ export(generate_data)
 export(probit_glm)
 export(hetero_probit)
 export(quantile_function)
+export(simulation_procedure)
 
 useDynLib(HomogeneityTest, .registration=TRUE)
 importFrom(Rcpp, evalCpp)

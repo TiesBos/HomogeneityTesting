@@ -310,6 +310,9 @@ Rcpp::List bootstrap_procedure(const arma::mat& data, int B, int max_iter = 1000
   
     // Run the bootstrap procedure
     arma::vec boot_stats_unfiltered = boot_function(data, B, null_model);
+    Rcpp::Rcout << "boot_stats_unfiltered size: " << boot_stats_unfiltered.n_elem << std::endl;
+    arma::uvec finite_indices = find_finite(boot_stats_unfiltered);
+    Rcpp::Rcout << "Number of finite elements: " << finite_indices.n_elem << std::endl;
     arma::vec boot_stats = boot_stats_unfiltered.elem(find_finite(boot_stats_unfiltered));
     double mean_boot_stats = arma::mean(boot_stats);
     double sd_boot_stats = arma::stddev(boot_stats);

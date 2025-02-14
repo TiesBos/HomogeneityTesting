@@ -305,7 +305,15 @@ Rcpp::List bootstrap_procedure(const arma::mat& data, int B, int max_iter = 1000
   double LLR_stat = 2 * (full_model(0) - null_model(0));
   
   if(LLR_stat < 0){
-    return(Rcpp::List::create(NA_REAL));
+    return Rcpp::List::create(
+        Rcpp::Named("LLR_stat") = LLR_stat,
+        Rcpp::Named("normalized_LLR_stat") = NA_REAL,
+        Rcpp::Named("chi_squared_reject") = NA_LOGICAL,
+        Rcpp::Named("q_5_reject") = NA_LOGICAL,
+        Rcpp::Named("q_95_reject") = NA_LOGICAL,
+        Rcpp::Named("q_025_975_reject") = NA_LOGICAL,
+        Rcpp::Named("boot_reject") = NA_LOGICAL
+    );
   } else{
   
     // Run the bootstrap procedure
@@ -314,6 +322,20 @@ Rcpp::List bootstrap_procedure(const arma::mat& data, int B, int max_iter = 1000
     arma::uvec finite_indices = find_finite(boot_stats_unfiltered);
     Rcpp::Rcout << "Number of finite elements: " << finite_indices.n_elem << std::endl;
     arma::vec boot_stats = boot_stats_unfiltered.elem(find_finite(boot_stats_unfiltered));
+    
+    // check if boot_stats is empty:
+    if(boot_stats.n_elem == 0){
+      return Rcpp::List::create(
+        Rcpp::Named("LLR_stat") = LLR_stat,
+        Rcpp::Named("normalized_LLR_stat") = NA_REAL,
+        Rcpp::Named("chi_squared_reject") = NA_LOGICAL,
+        Rcpp::Named("q_5_reject") = NA_LOGICAL,
+        Rcpp::Named("q_95_reject") = NA_LOGICAL,
+        Rcpp::Named("q_025_975_reject") = NA_LOGICAL,
+        Rcpp::Named("boot_reject") = NA_LOGICAL
+      );
+    }
+    
     double mean_boot_stats = arma::mean(boot_stats);
     double sd_boot_stats = arma::stddev(boot_stats);
     double normalized_boot_stats = (LLR_stat - mean_boot_stats) / sd_boot_stats;

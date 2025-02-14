@@ -267,7 +267,11 @@ struct BootWorker : public Worker {
         double LR_stat = 2 * (fe_model(0) - fe_model_null(0));
         
         // Store result safely
-        boot_stats[i] = LR_stat;
+        if(LR_stat < 0){
+          boot_stats[i] = NA_REAL;
+        } else{
+          boot_stats[i] = LR_stat;
+        }
       } catch (const std::exception& e) {
         boot_stats[i] = NA_REAL;  // Assign NA if an error occurs
       }
@@ -299,35 +303,40 @@ Rcpp::List bootstrap_procedure(const arma::mat& data, int B, int max_iter = 1000
   arma::vec full_model = binary_individual_slopes(data, max_iter, tol);
   double LLR_stat = 2 * (full_model(0) - null_model(0));
   
-  // Run the bootstrap procedure
-  arma::vec boot_stats_unfiltered = boot_function(data, B, null_model);
-  arma::vec boot_stats = boot_stats_unfiltered.elem(find_finite(boot_stats_unfiltered));
-  double mean_boot_stats = arma::mean(boot_stats);
-  double sd_boot_stats = arma::stddev(boot_stats);
-  double normalized_boot_stats = (LLR_stat - mean_boot_stats) / sd_boot_stats;
+  if(LLR_stat < 0){
+    return(NA_REAL);
+  } else{
   
-  // Standard Normal quantile:
-  double quantile_005 = R::qnorm(0.05, 0.0, 1.0, 1, 0);
-  double quantile_095 = R::qnorm(0.95, 0.0, 1.0, 1, 0);
-  double quantile_025 = R::qnorm(0.025, 0.0, 1.0, 1, 0);
-  double quantile_975 = R::qnorm(0.975, 0.0, 1.0, 1, 0);
-  
-  // chi-squared quantile
-  double chi_squared_005 = R::qchisq(0.95,N-1, true, false);
-  
-  // bootstrap quantile:
-  double boot_quantile = quantile_func(boot_stats, 0.95);
-  
-  // Return the results
-  return Rcpp::List::create(
-    Rcpp::Named("LLR_stat") = LLR_stat,
-    Rcpp::Named("normalized_LLR_stat") = normalized_boot_stats,
-    Rcpp::Named("chi_squared_reject") = LLR_stat > chi_squared_005,
-    Rcpp::Named("q_5_reject") = normalized_boot_stats < quantile_005,
-                                              Rcpp::Named("q_95_reject") = normalized_boot_stats > quantile_095,
-                                              Rcpp::Named("q_025_975_reject") = normalized_boot_stats < quantile_025 || normalized_boot_stats > quantile_975,
-                                              Rcpp::Named("boot_reject") = LLR_stat > boot_quantile
-  );
+    // Run the bootstrap procedure
+    arma::vec boot_stats_unfiltered = boot_function(data, B, null_model);
+    arma::vec boot_stats = boot_stats_unfiltered.elem(find_finite(boot_stats_unfiltered));
+    double mean_boot_stats = arma::mean(boot_stats);
+    double sd_boot_stats = arma::stddev(boot_stats);
+    double normalized_boot_stats = (LLR_stat - mean_boot_stats) / sd_boot_stats;
+    
+    // Standard Normal quantile:
+    double quantile_005 = R::qnorm(0.05, 0.0, 1.0, 1, 0);
+    double quantile_095 = R::qnorm(0.95, 0.0, 1.0, 1, 0);
+    double quantile_025 = R::qnorm(0.025, 0.0, 1.0, 1, 0);
+    double quantile_975 = R::qnorm(0.975, 0.0, 1.0, 1, 0);
+    
+    // chi-squared quantile
+    double chi_squared_005 = R::qchisq(0.95,N-1, true, false);
+    
+    // bootstrap quantile:
+    double boot_quantile = quantile_func(boot_stats, 0.95);
+    
+    // Return the results
+    return Rcpp::List::create(
+      Rcpp::Named("LLR_stat") = LLR_stat,
+      Rcpp::Named("normalized_LLR_stat") = normalized_boot_stats,
+      Rcpp::Named("chi_squared_reject") = LLR_stat > chi_squared_005,
+      Rcpp::Named("q_5_reject") = normalized_boot_stats < quantile_005,
+                                                Rcpp::Named("q_95_reject") = normalized_boot_stats > quantile_095,
+                                                Rcpp::Named("q_025_975_reject") = normalized_boot_stats < quantile_025 || normalized_boot_stats > quantile_975,
+                                                Rcpp::Named("boot_reject") = LLR_stat > boot_quantile
+    );
+  }
 }
 
 // [[Rcpp::export]]

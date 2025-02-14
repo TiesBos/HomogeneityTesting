@@ -5,7 +5,7 @@
 // #include <cstdlib>  // For std::ldiv, std::lldiv, etc.
 // #include <cerrno>   // For errno
 // #include <cstddef>  // For size_t
-#include <nlopt.hpp>  // For optimization
+//#include <nlopt.hpp>  // For optimization
 
 // [[Rcpp::depends(RcppArmadillo, RcppParallel)]]
 
@@ -47,61 +47,115 @@ arma::mat generate_panel_data(int N, int tt, double beta, double sigma) {
 }
 
 // =============== The Probit Estimation Functions =============================
-
-// Probit log-likelihood function
-double probit_log_likelihood(const std::vector<double> &beta, std::vector<double> &grad, void* params) {
-  // Extract parameters (X and Y)
-  arma::mat* X = static_cast<arma::mat*>(static_cast<void**>(params)[0]);
-  arma::vec* Y = static_cast<arma::vec*>(static_cast<void**>(params)[1]);
-  
-  arma::vec beta_arma = arma::vec(beta); // Convert std::vector to arma::vec
-  
-  // Compute linear predictor
-  arma::vec linear_predictor = (*X) * beta_arma;
-  
-  // Compute the cumulative normal distribution (Probit model)
+// Log-likelihood and gradient for probit model
+double probit_log_likelihood(const arma::vec& beta, const arma::mat& X, const arma::vec& Y) {
+  arma::vec linear_predictor = X * beta;
   arma::vec Phi = 0.5 * (1.0 + arma::erf(linear_predictor / std::sqrt(2.0)));
   Phi = arma::clamp(Phi, 1e-10, 1 - 1e-10); // Avoid log(0)
+  return arma::sum(Y % arma::log(Phi) + (1 - Y) % arma::log(1 - Phi));
+}
+
+arma::vec probit_log_likelihood_gradient(const arma::vec& beta, const arma::mat& X, const arma::vec& Y) {
+  arma::vec linear_predictor = X * beta;
+  arma::vec pdf = arma::exp(-0.5 * arma::square(linear_predictor)) / std::sqrt(2.0 * M_PI);
+  arma::vec Phi = 0.5 * (1.0 + arma::erf(linear_predictor / std::sqrt(2.0)));
+  Phi = arma::clamp(Phi, 1e-10, 1 - 1e-10); // Avoid division by zero
+  arma::vec score = (Y - Phi) / (Phi % (1 - Phi));
+  return X.t() * (pdf % score);
+}
+
+arma::mat probit_log_likelihood_hessian(const arma::vec& beta, const arma::mat& X, const arma::vec& Y) {
+  arma::vec linear_predictor = X * beta;
+  arma::vec pdf = arma::exp(-0.5 * arma::square(linear_predictor)) / std::sqrt(2.0 * M_PI);
+  arma::vec Phi = 0.5 * (1.0 + arma::erf(linear_predictor / std::sqrt(2.0)));
+  Phi = arma::clamp(Phi, 1e-10, 1 - 1e-10); // Avoid division by zero
+  arma::vec W = (pdf % pdf) / (Phi % (1 - Phi)); // Diagonal of weight matrix
+  return -X.t() * arma::diagmat(W) * X;
+}
+
+// Newton-Raphson method for probit MLE
+// [[Rcpp::export]]
+arma::vec probit_mle(const arma::mat& X, const arma::vec& Y, int max_iter = 100000, double tol = 1e-6) {
+  int p = X.n_cols;
+  arma::vec beta = arma::zeros(p); // Initial guess
   
-  // Compute the log-likelihood
-  double log_likelihood = -arma::sum((*Y) % arma::log(Phi) + (1 - (*Y)) % arma::log(1 - Phi));
-  
-  // Compute gradient if required
-  if (!grad.empty()) {
-    arma::vec pdf = arma::exp(-0.5 * arma::square(linear_predictor)) / std::sqrt(2.0 * M_PI);
-    arma::vec score = ((*Y - Phi) / (Phi % (1 - Phi))) % pdf;
-    arma::vec gradient = -(*X).t() * score;
+  for (int iter = 0; iter < max_iter; ++iter) {
+    arma::vec gradient = probit_log_likelihood_gradient(beta, X, Y);
+    arma::mat hessian = probit_log_likelihood_hessian(beta, X, Y);
     
-    // Fill std::vector grad
-    for (size_t i = 0; i < gradient.n_elem; ++i) {
-      grad[i] = gradient[i];
+    arma::vec step = arma::solve(hessian, gradient, arma::solve_opts::fast); // Newton step
+    beta -= step;
+    
+    // Convergence check
+    if (arma::norm(step, 2) < tol) {
+      break;
     }
   }
   
-  return log_likelihood;
+  double log_likelihood = probit_log_likelihood(beta, X, Y);
+  
+  arma::vec output(1 + beta.n_elem);
+  output[0] = log_likelihood;
+  output.subvec(1, beta.n_elem) = beta;
+  
+  return(output);
 }
 
-//[[Rcpp::export]]
-arma::vec probit_mle(const arma::mat& X, const arma::vec& Y, int max_iter = 10000, double tol = 1e-6) {
-  size_t n_params = X.n_cols;
-  std::vector<double> beta(n_params, 0.0);
-  void* params[] = {const_cast<arma::mat*>(&X), const_cast<arma::vec*>(&Y)};
-  
-  nlopt::opt opt(nlopt::LD_LBFGS, n_params);
-  opt.set_min_objective(probit_log_likelihood, static_cast<void*>(params));
-  opt.set_xtol_rel(tol);
-  opt.set_maxeval(max_iter);
-  
-  double minf;
-  nlopt::result result = opt.optimize(beta, minf);
-  
-  arma::vec beta_final = arma::vec(beta);
-  arma::vec output(1 + beta_final.n_elem);
-  output[0] = -minf;
-  output.subvec(1, beta_final.n_elem) = beta_final;
-  
-  return output;
-}
+
+// // Probit log-likelihood function
+// double probit_log_likelihood(const std::vector<double> &beta, std::vector<double> &grad, void* params) {
+//   // Extract parameters (X and Y)
+//   arma::mat* X = static_cast<arma::mat*>(static_cast<void**>(params)[0]);
+//   arma::vec* Y = static_cast<arma::vec*>(static_cast<void**>(params)[1]);
+//   
+//   arma::vec beta_arma = arma::vec(beta); // Convert std::vector to arma::vec
+//   
+//   // Compute linear predictor
+//   arma::vec linear_predictor = (*X) * beta_arma;
+//   
+//   // Compute the cumulative normal distribution (Probit model)
+//   arma::vec Phi = 0.5 * (1.0 + arma::erf(linear_predictor / std::sqrt(2.0)));
+//   Phi = arma::clamp(Phi, 1e-10, 1 - 1e-10); // Avoid log(0)
+//   
+//   // Compute the log-likelihood
+//   double log_likelihood = -arma::sum((*Y) % arma::log(Phi) + (1 - (*Y)) % arma::log(1 - Phi));
+//   
+//   // Compute gradient if required
+//   if (!grad.empty()) {
+//     arma::vec pdf = arma::exp(-0.5 * arma::square(linear_predictor)) / std::sqrt(2.0 * M_PI);
+//     arma::vec score = ((*Y - Phi) / (Phi % (1 - Phi))) % pdf;
+//     arma::vec gradient = -(*X).t() * score;
+//     
+//     // Fill std::vector grad
+//     for (size_t i = 0; i < gradient.n_elem; ++i) {
+//       grad[i] = gradient[i];
+//     }
+//   }
+//   
+//   return log_likelihood;
+// }
+// 
+// //[[Rcpp::export]]
+// arma::vec probit_mle(const arma::mat& X, const arma::vec& Y, int max_iter = 10000, double tol = 1e-6) {
+//   size_t n_params = X.n_cols;
+//   std::vector<double> beta(n_params, 0.0);
+//   void* params[] = {const_cast<arma::mat*>(&X), const_cast<arma::vec*>(&Y)};
+//   
+//   nlopt::opt opt(nlopt::LD_LBFGS, n_params);
+//   opt.set_min_objective(probit_log_likelihood, static_cast<void*>(params));
+//   opt.set_xtol_rel(tol);
+//   opt.set_maxeval(max_iter);
+//   
+//   double minf;
+//   nlopt::result result = opt.optimize(beta, minf);
+//   
+//   arma::vec beta_final = arma::vec(beta);
+//   arma::vec output(1 + beta_final.n_elem);
+//   output[0] = -minf;
+//   output.subvec(1, beta_final.n_elem) = beta_final;
+//   
+//   return output;
+// }
 
 // [[Rcpp::export]]
 arma::vec binary_individual_slopes(const arma::mat& data, int max_iter = 1000, double tol = 1e-6) {
@@ -112,19 +166,18 @@ arma::vec binary_individual_slopes(const arma::mat& data, int max_iter = 1000, d
   
   int N = arma::vec(arma::unique(ID)).n_elem;
   
-  
   // Create ID dummies using model.matrix equivalent in Rcpp
   arma::mat X_ID = arma::zeros<arma::mat>(ID.n_elem, N);
   for (int i = 0; i < ID.n_elem; i++) {
     X_ID(i, ID(i)-1) = X(i);
   }
-  
+
   // Remove the first column of X_ID to avoid multicollinearity
   arma::mat X_ID_new = X_ID.cols(1, X_ID.n_cols - 1);
-  
+
   // Create interaction between X and ID dummies
   arma::mat full_X = join_rows(X, X_ID_new);
-  
+
   // Run MLE using probit_log_likelihood and its gradient (you can adjust optimizer here)
   arma::vec mle_result = probit_mle(full_X, Y, max_iter, tol);
   

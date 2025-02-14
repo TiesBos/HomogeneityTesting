@@ -1,4 +1,5 @@
 #include <RcppParallel.h>
+#define ARMA_WARN_LEVEL 0
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
 #include <random>
@@ -304,7 +305,7 @@ Rcpp::List bootstrap_procedure(const arma::mat& data, int B, int max_iter = 1000
   double LLR_stat = 2 * (full_model(0) - null_model(0));
   
   if(LLR_stat < 0){
-    return(NA_REAL);
+    return(Rcpp::List::create(NA_REAL));
   } else{
   
     // Run the bootstrap procedure
@@ -332,27 +333,34 @@ Rcpp::List bootstrap_procedure(const arma::mat& data, int B, int max_iter = 1000
       Rcpp::Named("normalized_LLR_stat") = normalized_boot_stats,
       Rcpp::Named("chi_squared_reject") = LLR_stat > chi_squared_005,
       Rcpp::Named("q_5_reject") = normalized_boot_stats < quantile_005,
-                                                Rcpp::Named("q_95_reject") = normalized_boot_stats > quantile_095,
-                                                Rcpp::Named("q_025_975_reject") = normalized_boot_stats < quantile_025 || normalized_boot_stats > quantile_975,
-                                                Rcpp::Named("boot_reject") = LLR_stat > boot_quantile
-    );
+      Rcpp::Named("q_95_reject") = normalized_boot_stats > quantile_095,
+      Rcpp::Named("q_025_975_reject") = normalized_boot_stats < quantile_025 || normalized_boot_stats > quantile_975,
+      Rcpp::Named("boot_reject") = LLR_stat > boot_quantile
+);
   }
 }
 
 // [[Rcpp::export]]
 Rcpp::List simulation_procedure(int N, int tt, int no_sim, int B, int max_iter = 1000, double tol = 1e-6) {
+  
+  Rcpp::Environment base = Rcpp::Environment::base_env();
+  Rcpp::Function suppressWarnings = base["suppressWarnings"];
+  
   Rcpp::List sim_results(no_sim);
   // Store the results:
   for(int i = 0; i < no_sim; i++) {
     try {
       // Generate panel data
       arma::mat data = generate_panel_data(N, tt, 1.0, 1.0);
-      
+      std::ofstream null_stream("/dev/null");
+      std::streambuf* old_cerr = std::cerr.rdbuf(null_stream.rdbuf());
       // Run the bootstrap procedure
-      Rcpp::List results = bootstrap_procedure(data, B, max_iter, tol);
+      //suppressWarnings(Rcpp::wrap(your_expression));
+      Rcpp::List results = suppressWarnings(Rcpp::wrap(bootstrap_procedure(data, B, max_iter, tol)));
       // Store results
       sim_results[i] = results;
       // Update print statement:
+      std::cerr.rdbuf(old_cerr);
       Rcpp::Rcout << "Simulation " << i + 1 << " completed." << std::endl;
     } catch (const std::exception& e) {
       Rcpp::Rcout << "Simulation " << i + 1 << " failed." << std::endl;
